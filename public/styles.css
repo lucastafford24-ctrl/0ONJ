@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Foodie Hub</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-mark">🍽️</div>
+        <div>
+          <p class="eyebrow">Fresh meals</p>
+          <h1>Foodie Hub</h1>
+        </div>
+      </div>
+      <div class="cart-pill">
+        <span>Cart</span>
+        <strong id="cart-count">0</strong>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="menu-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Menu</p>
+            <h2>Popular picks</h2>
+          </div>
+        </div>
+        <div id="menu-items" class="menu-grid"></div>
+      </section>
+
+      <aside class="checkout-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Your order</p>
+            <h2>Cart summary</h2>
+          </div>
+        </div>
+
+        <div id="cart-items" class="cart-items"></div>
+
+        <div class="totals">
+          <div class="row">
+            <span>Subtotal</span>
+            <strong id="subtotal">$0.00</strong>
+          </div>
+          <div class="row">
+            <span>Delivery</span>
+            <strong id="delivery">$0.00</strong>
+          </div>
+          <div class="row total-row">
+            <span>Total</span>
+            <strong id="total">$0.00</strong>
+          </div>
+        </div>
+
+        <form id="checkout-form" class="checkout-form">
+          <label>
+            Name
+            <input type="text" name="name" placeholder="Your name" required />
+          </label>
+          <label>
+            Email
+            <input type="email" name="email" placeholder="you@example.com" required />
+          </label>
+          <label>
+            Delivery address
+            <textarea name="address" rows="3" placeholder="Street, city, ZIP" required></textarea>
+          </label>
+
+          <div class="fake-payment-box">
+            <span>Fake payment</span>
+            <strong>Card approved instantly</strong>
+          </div>
+
+          <button type="submit" class="primary-btn">Place order</button>
+        </form>
+
+        <div id="order-message" class="order-message" aria-live="polite"></div>
+      </aside>
+    </main>
+
+    <section class="recent-orders">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Activity</p>
+          <h2>Recent orders</h2>
+        </div>
+      </div>
+      <div id="recent-orders-list" class="recent-orders-list"></div>
+    </section>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

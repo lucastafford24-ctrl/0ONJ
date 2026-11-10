@@ -1,0 +1,236 @@
+const state = {
+  menu: [],
+  cart: JSON.parse(localStorage.getItem('foodie-cart') || '[]')
+};
+
+const menuContainer = document.getElementById('menu-items');
+const cartContainer = document.getElementById('cart-items');
+const cartCount = document.getElementById('cart-count');
+const subtotalEl = document.getElementById('subtotal');
+const deliveryEl = document.getElementById('delivery');
+const totalEl = document.getElementById('total');
+const checkoutForm = document.getElementById('checkout-form');
+const orderMessage = document.getElementById('order-message');
+const recentOrdersList = document.getElementById('recent-orders-list');
+
+function saveCart() {
+  localStorage.setItem('foodie-cart', JSON.stringify(state.cart));
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(value);
+}
+
+function getCartTotal() {
+  return state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+}
+
+function renderCart() {
+  cartCount.textContent = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  if (state.cart.length === 0) {
+    cartContainer.innerHTML = '<div class="empty-state">Your cart is empty.</div>';
+    subtotalEl.textContent = '$0.00';
+    deliveryEl.textContent = '$0.00';
+    totalEl.textContent = '$0.00';
+    return;
+  }
+
+  const subtotal = getCartTotal();
+  const delivery = subtotal > 0 ? 4.99 : 0;
+  const total = subtotal + delivery;
+
+  subtotalEl.textContent = formatCurrency(subtotal);
+  deliveryEl.textContent = formatCurrency(delivery);
+  totalEl.textContent = formatCurrency(total);
+
+  cartContainer.innerHTML = state.cart
+    .map(
+      (item) => `
+        <div class="cart-item">
+          <div class="cart-item-meta">
+            <strong>${item.name}</strong>
+            <div class="item-price-line">
+              <span>${formatCurrency(item.price)}</span>
+              <span>•</span>
+              <span>${formatCurrency(item.price * item.quantity)}</span>
+            </div>
+          </div>
+          <div class="quantity-controls">
+            <button class="small-btn" data-action="decrease" data-item-id="${item.id}" aria-label="Decrease quantity">−</button>
+            <span>${item.quantity}</span>
+            <button class="small-btn" data-action="increase" data-item-id="${item.id}" aria-label="Increase quantity">+</button>
+          </div>
+        </div>
+      `
+    )
+    .join('');
+}
+
+function addToCart(itemId) {
+  const item = state.menu.find((entry) => entry.id === itemId);
+  if (!item) return;
+
+  const existing = state.cart.find((entry) => entry.id === itemId);
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    state.cart.push({ id: item.id, name: item.name, price: item.price, quantity: 1 });
+  }
+
+  saveCart();
+  renderCart();
+}
+
+function changeQuantity(itemId, delta) {
+  const item = state.cart.find((entry) => entry.id === itemId);
+  if (!item) return;
+
+  item.quantity += delta;
+
+  if (item.quantity <= 0) {
+    state.cart = state.cart.filter((entry) => entry.id !== itemId);
+  }
+
+  saveCart();
+  renderCart();
+}
+
+function renderMenu() {
+  menuContainer.innerHTML = state.menu
+    .map(
+      (item) => `
+        <article class="menu-item">
+          <div class="menu-item-visual">${item.image}</div>
+          <div class="menu-item-body">
+            <div class="menu-item-top">
+              <h3>${item.name}</h3>
+              <span class="category-tag">${item.category}</span>
+            </div>
+            <p>${item.description}</p>
+            <div class="menu-item-footer">
+              <span class="price">${formatCurrency(item.price)}</span>
+              <button class="add-btn" data-item-id="${item.id}">Add</button>
+            </div>
+          </div>
+        </article>
+      `
+    )
+    .join('');
+}
+
+async function loadMenu() {
+  const response = await fetch('/api/menu');
+  const menu = await response.json();
+  state.menu = menu;
+  renderMenu();
+}
+
+async function loadRecentOrders() {
+  try {
+    const response = await fetch('/api/orders');
+    const orders = await response.json();
+
+    if (!orders.length) {
+      recentOrdersList.innerHTML = '<div class="empty-state">No orders yet. Your next order will appear here.</div>';
+      return;
+    }
+
+    recentOrdersList.innerHTML = orders
+      .slice(0, 5)
+      .map(
+        (order) => `
+          <article class="order-card">
+            <div class="order-id">${order.id}</div>
+            <div>${order.customer.name}</div>
+            <small>${new Date(order.createdAt).toLocaleString()}</small>
+            <div style="margin-top: 8px; font-weight: 700;">${formatCurrency(order.total)}</div>
+          </article>
+        `
+      )
+      .join('');
+  } catch (error) {
+    recentOrdersList.innerHTML = '<div class="empty-state">Unable to load recent orders.</div>';
+  }
+}
+
+checkoutForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  if (!state.cart.length) {
+    orderMessage.textContent = 'Add at least one item before placing the order.';
+    orderMessage.className = 'order-message error';
+    return;
+  }
+
+  const formData = new FormData(checkoutForm);
+  const payload = {
+    customer: {
+      name: formData.get('name'),
+      email: formData.get('email'),
+      address: formData.get('address')
+    },
+    items: state.cart.map((item) => ({ id: item.id, quantity: item.quantity }))
+  };
+
+  try {
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Could not place order.');
+    }
+
+    orderMessage.textContent = `${result.message} Order #${result.order.id} confirmed.`;
+    orderMessage.className = 'order-message success';
+    state.cart = [];
+    saveCart();
+    renderCart();
+    checkoutForm.reset();
+    await loadRecentOrders();
+  } catch (error) {
+    orderMessage.textContent = error.message;
+    orderMessage.className = 'order-message error';
+  }
+});
+
+menuContainer.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-item-id]');
+  if (!button) return;
+  addToCart(button.dataset.itemId);
+});
+
+cartContainer.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-item-id]');
+  if (!button) return;
+
+  const itemId = button.dataset.itemId;
+  const action = button.dataset.action;
+
+  if (action === 'increase') {
+    changeQuantity(itemId, 1);
+  }
+
+  if (action === 'decrease') {
+    changeQuantity(itemId, -1);
+  }
+});
+
+async function init() {
+  await loadMenu();
+  renderCart();
+  await loadRecentOrders();
+}
+
+init();
+
